@@ -1,22 +1,17 @@
 package model;
 
-import java.io.File;
 import java.util.*;
 
 public class Simulation {
-
-    //Random variables read from input files
-    private static Queue<Double> servinsp1;
-    private static Queue<Double> servinsp22;
-    private static Queue<Double> servinsp23;
-    private static Queue<Double> ws1;
-    private static Queue<Double> ws2;
-    private static Queue<Double> ws3;
-
-    private static Random random; //random variable generator
+    private static SimulationRandom simRandom; //random variable generator
     private static double clock; //current simulation time
     private static int totalProducts; //how many products to simulate
     private static PriorityQueue<Event> futureEvents; //List of queued events, sorted by time
+
+    //Total inputs
+    private static int numberC1;
+    private static int numberC2;
+    private static int numberC3;
 
     //Total outputs
     private static int numberProducts;
@@ -40,7 +35,7 @@ public class Simulation {
 
         System.out.printf("%10s %10s %5s %5s %10s | %3s %3s %3s | %3s %3s %3s %3s %3s | %3s %3s %3s\n","","Event","Comp","Prod","Clock","C1","C2","C3","B11","B21","B22","B31","B33","P1","P2","P3");
         System.out.printf("%10s %10s %5s %5s %10.3f | %3d %3d %3d | %3d %3d %3d %3d %3d | %3d %3d %3d\n","","","","",clock,
-                300-servinsp1.size(), 300-servinsp22.size(), 300-servinsp23.size(), ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
+                numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
         while (numberProducts < totalProducts) {
             Event event = futureEvents.poll();
 
@@ -59,10 +54,10 @@ public class Simulation {
     /**
      * Initialize the simulation
      */
-    public static void initialization() {
-        loadInputData();
+    private static void initialization() {
+        totalProducts = 1000;
         futureEvents = new PriorityQueue<>();
-        random = new Random(100980888L);
+        simRandom = new SimulationRandom(100980888L);
         clock = 0.0;
 
         inspector1Hold = null;
@@ -73,6 +68,9 @@ public class Simulation {
         ws2BufferC2 = 0;
         ws3BufferC1 = 0;
         ws3BufferC3 = 0;
+        numberC1 = 0;
+        numberC2 = 0;
+        numberC3 = 0;
         numberProducts = 0;
         numberP1 = 0;
         numberP2 = 0;
@@ -82,67 +80,21 @@ public class Simulation {
 
         //Queue starting arrival events
         //Null warning, but totalProducts would cancel if any are empty
-        futureEvents.add(new Event(EventType.Arrival, ComponentType.C1, null, servinsp1.poll()));
-        if (random.nextBoolean())
-            futureEvents.add(new Event(EventType.Arrival, ComponentType.C2, null, servinsp22.poll()));
-        else
-            futureEvents.add(new Event(EventType.Arrival, ComponentType.C3, null, servinsp23.poll()));
-    }
-
-    /**
-     * Load the input distribution data from their files
-     */
-    private static void loadInputData() {
-        //Initialize Queues
-        servinsp1 = new LinkedList<>();
-        servinsp22 = new LinkedList<>();
-        servinsp23 = new LinkedList<>();
-        ws1 = new LinkedList<>();
-        ws2 = new LinkedList<>();
-        ws3 = new LinkedList<>();
-
-        //Read input files
-        //Set total products based on when you run out of inputs
-        totalProducts = readInputFile("servinsp1.dat", servinsp1);
-        totalProducts = Math.min(totalProducts, readInputFile("servinsp22.dat", servinsp22));
-        totalProducts = Math.min(totalProducts, readInputFile("servinsp23.dat", servinsp23));
-        totalProducts = Math.min(totalProducts, readInputFile("ws1.dat", ws1));
-        totalProducts = Math.min(totalProducts, readInputFile("ws2.dat", ws2));
-        totalProducts = Math.min(totalProducts, readInputFile("ws3.dat", ws3));
-    }
-
-    /**
-     * Read the simulation input data from its file and load it into a queue
-     *
-     * @param filename The name of the data file
-     * @param queue    The queue to load the data into
-     * @return The length of the data added to the queue
-     */
-    private static int readInputFile(String filename, Queue<Double> queue) {
-        int count = 0;
-        try {
-            Scanner sc = new Scanner(new File(filename));
-            while (sc.hasNextLine()) {
-                String next = sc.nextLine();
-                if (next != null && next.length() > 0) {
-                    try {
-                        double value = Double.parseDouble(next);
-                        queue.add(value);
-                        count++;
-                    } catch (Exception e) {
-                    }
-                }
-            }
-            sc.close();
-        } catch (Exception e) {
+        futureEvents.add(new Event(EventType.Arrival, ComponentType.C1, null, simRandom.nextServinsp1()));
+        numberC1++;
+        if (simRandom.nextInsp2Comp() == ComponentType.C2) {
+            futureEvents.add(new Event(EventType.Arrival, ComponentType.C2, null, simRandom.nextServinsp22()));
+            numberC2++;
+        } else {
+            futureEvents.add(new Event(EventType.Arrival, ComponentType.C3, null, simRandom.nextServinsp23()));
+            numberC3++;
         }
-        return count;
     }
 
     /**
      * Process an arrival event and queue further events
      * Triggered when an inspector finishes
-     * @param event
+     * @param event The arrival event to be processed
      */
     private static void processArrivalEvent(Event event) {
         ProductType destinationProduct = null;
@@ -184,7 +136,7 @@ public class Simulation {
         }
 
         System.out.printf("%10s %10s %5s %5s %10.3f | %3d %3d %3d | %3d %3d %3d %3d %3d | %3d %3d %3d\n","Process",event.getEventType(),event.getComponentType(),event.getProductType(),clock,
-                300-servinsp1.size(), 300-servinsp22.size(), 300-servinsp23.size(), ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
+                numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
 
         //Set up arrivals and departures if not on hold
         if(destinationProduct != null){
@@ -199,29 +151,31 @@ public class Simulation {
      */
     private static void scheduleArrivalEvent(Event event) {
         ComponentType nextComponent = null;
-        Double nextTime = null;
+        double nextTime = Double.NaN;
         if (event.getComponentType() == ComponentType.C1) { //Inspector 1
             if (inspector1Hold == null) {
                 nextComponent = ComponentType.C1;
-                nextTime = servinsp1.poll();
+                nextTime = simRandom.nextServinsp1();
+                numberC1++;
             }
         } else { //Inspector 2
             if (inspector2Hold == null) {
-                if (random.nextBoolean()) {
-                    nextComponent = ComponentType.C2;
-                    nextTime = servinsp22.poll();
+                nextComponent = simRandom.nextInsp2Comp();
+                if (nextComponent == ComponentType.C2) {
+                    nextTime = simRandom.nextServinsp22();
+                    numberC2++;
                 } else {
-                    nextComponent = ComponentType.C3;
-                    nextTime = servinsp23.poll();
+                    nextTime = simRandom.nextServinsp23();
+                    numberC3++;
                 }
             }
         }
 
-        if (nextTime != null) { //skip if sample distribution depleted
+        if (!Double.isNaN(nextTime) && nextComponent != null) {
             Event newEvent = new Event(EventType.Arrival, nextComponent, null, clock + nextTime);
             futureEvents.add(newEvent);
             System.out.printf("%10s %10s %5s %5s %10.3f | %3d %3d %3d | %3d %3d %3d %3d %3d | %3d %3d %3d\n","Schedule",newEvent.getEventType(),newEvent.getComponentType(),newEvent.getProductType(),clock,
-                    300-servinsp1.size(), 300-servinsp22.size(), 300-servinsp23.size(), ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
+                    numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
         }
     }
 
@@ -229,48 +183,44 @@ public class Simulation {
      * Schedule a departure event, if applicable
      * @param type The product to attempt to schedule assembly for
      */
-    private static void scheduleDepartureEvent(ProductType type){
+    private static void scheduleDepartureEvent(ProductType type) {
         //If true, that workstation is already running, can't schedule now
-        if(futureEvents.stream().anyMatch(e -> e.getProductType() == type)){
+        if (futureEvents.stream().anyMatch(e -> e.getProductType() == type)) {
             return;
         }
 
         //check sufficient buffer
-            Double nextTime = null;
-        switch (type){
+        double nextTime = Double.NaN;
+        switch (type) {
             case P1:
-                if(ws1BufferC1 > 0){
-                    nextTime = ws1.poll();
-                    if(nextTime != null){
-                        ws1BufferC1--;
-                    }
+                if (ws1BufferC1 > 0) {
+                    nextTime = simRandom.nextWs1();
+                    ws1BufferC1--;
                 }
                 break;
             case P2:
-                if(ws2BufferC1 > 0 && ws2BufferC2 > 0){
-                    nextTime = ws2.poll();
-                    if(nextTime != null){
-                        ws2BufferC1--;
-                        ws2BufferC2--;
-                    }
+                if (ws2BufferC1 > 0 && ws2BufferC2 > 0) {
+                    nextTime = simRandom.nextWs2();
+                    ws2BufferC1--;
+                    ws2BufferC2--;
                 }
                 break;
             case P3:
-                if(ws3BufferC1 > 0 && ws3BufferC3 > 0){
-                    nextTime = ws3.poll();
-                    if(nextTime != null){
-                        ws3BufferC1--;
-                        ws3BufferC3--;
-                    }
+                if (ws3BufferC1 > 0 && ws3BufferC3 > 0) {
+                    nextTime = simRandom.nextWs3();
+                    ws3BufferC1--;
+                    ws3BufferC3--;
                 }
                 break;
+            default:
+                throw new IllegalArgumentException();
         }
 
-        if(nextTime != null){ //skip if sample distribution depleted
+        if(!Double.isNaN(nextTime)) { //check the product is being made
             Event newEvent = new Event(EventType.Departure, null, type, clock + nextTime);
             futureEvents.add(newEvent);
-            System.out.printf("%10s %10s %5s %5s %10.3f | %3d %3d %3d | %3d %3d %3d %3d %3d | %3d %3d %3d\n","Schedule",newEvent.getEventType(),newEvent.getComponentType(),newEvent.getProductType(),clock,
-                    300-servinsp1.size(), 300-servinsp22.size(), 300-servinsp23.size(), ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
+            System.out.printf("%10s %10s %5s %5s %10.3f | %3d %3d %3d | %3d %3d %3d %3d %3d | %3d %3d %3d\n", "Schedule", newEvent.getEventType(), newEvent.getComponentType(), newEvent.getProductType(), clock,
+                    numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
             //processHoldEvent();
         }
     }
@@ -318,7 +268,7 @@ public class Simulation {
     /**
      * Process a departure event
      * Triggered when a workstation finished
-     * @param event
+     * @param event The departure event to be processed
      */
     private static void processDepartureEvent(Event event) {
         switch (event.getProductType()){
@@ -333,7 +283,7 @@ public class Simulation {
                 break;
         }
         System.out.printf("%10s %10s %5s %5s %10.3f | %3d %3d %3d | %3d %3d %3d %3d %3d | %3d %3d %3d\n","Process",event.getEventType(),event.getComponentType(),event.getProductType(),clock,
-                300-servinsp1.size(), 300-servinsp22.size(), 300-servinsp23.size(), ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
+                numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
         scheduleDepartureEvent(event.getProductType());
     }
 
