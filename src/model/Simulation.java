@@ -38,6 +38,9 @@ public class Simulation {
     private static double ws2Active;
     private static double ws3Active;
 
+    //C1 priority value
+    private static int priority = 1;
+
     public static void main(String[] args) {
         initialization();
 
@@ -345,11 +348,42 @@ public class Simulation {
     private static ProductType determineC1Destination() {
         if(ws1BufferC1 >= 2 && ws2BufferC1 >= 2 && ws3BufferC1 >= 2) //All buffers full
             return null;
-        else if (ws1BufferC1 <= ws2BufferC1 && ws1BufferC1 <= ws3BufferC1)
-            return ProductType.P1;
-        else if (ws2BufferC1 <= ws3BufferC1)
-            return ProductType.P2;
-        else
-            return ProductType.P3;
+        switch(priority){
+            case 1:
+                //change priority for next case
+                priority = 2;
+                {
+                    if (ws1BufferC1 <= ws2BufferC1 && ws1BufferC1 <= ws3BufferC1)
+                        return ProductType.P1;
+                    else if (ws2BufferC1 <= ws3BufferC1)
+                        return ProductType.P2;
+                    else
+                        return ProductType.P3;
+                }
+            case 2:
+                //change priority for next case
+                priority = 3;
+                {
+                    if (ws2BufferC1 <= ws1BufferC1 && ws2BufferC1 <= ws3BufferC1)
+                        return ProductType.P2;
+                    else if (ws3BufferC1 <= ws1BufferC1)
+                        return ProductType.P3;
+                    else
+                        return ProductType.P1;
+                }
+            case 3:
+                //change priority for next case
+                priority = 1;
+                {
+                    if (ws3BufferC1 <= ws1BufferC1 && ws3BufferC1 <= ws2BufferC1)
+                        return ProductType.P3;
+                    else if (ws1BufferC1 <= ws2BufferC1)
+                        return ProductType.P1;
+                    else
+                        return ProductType.P2;
+                }
+            default:
+                return null;
+        }
     }
 }
