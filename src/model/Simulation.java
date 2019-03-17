@@ -7,6 +7,7 @@ public class Simulation {
     private static double clock; //current simulation time
     private static int totalProducts; //how many products to simulate
     private static PriorityQueue<Event> futureEvents; //List of queued events, sorted by time
+    private static double lastEventTime;
 
     //Total inputs
     private static int numberC1;
@@ -30,12 +31,24 @@ public class Simulation {
     private static Event inspector1Hold;
     private static Event inspector2Hold;
 
+    //Idle time tracking
+    private static double insp1Active;
+    private static double insp2Active;
+    private static double ws1Active;
+    private static double ws2Active;
+    private static double ws3Active;
+
     public static void main(String[] args) {
         initialization();
 
-        System.out.printf("%10s %10s %5s %5s %10s | %3s %3s %3s | %3s %3s %3s %3s %3s | %3s %3s %3s\n","","Event","Comp","Prod","Clock","C1","C2","C3","B11","B21","B22","B31","B33","P1","P2","P3");
-        System.out.printf("%10s %10s %5s %5s %10.3f | %3d %3d %3d | %3d %3d %3d %3d %3d | %3d %3d %3d\n","","","","",clock,
-                numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
+        System.out.printf("%10s %5s %5s %10s | %4s %4s %4s | %4s %4s %4s %4s %4s | %4s %4s %4s | %10s %10s | %10s %10s %10s\n",
+                "Event","Comp","Prod","Clock",
+                "C1","C2","C3","B11","B21","B22","B31","B33","P1","P2","P3",
+                "insp1 Idle","insp2 Idle","ws1 Idle","ws2 Idle","ws3 Idle");
+        System.out.printf("%10s %5s %5s %10.3f | %4d %4d %4d | %4d %4d %4d %4d %4d | %4d %4d %4d | %10.3f %10.3f | %10.3f %10.3f %10.3fs\n",
+                "","","",clock,
+                numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3,
+                clock-insp1Active, clock-insp2Active, clock-ws1Active, clock-ws2Active, clock-ws3Active);
         while (numberProducts < totalProducts) {
             Event event = futureEvents.poll();
 
@@ -48,7 +61,24 @@ public class Simulation {
                 processArrivalEvent(event);
             else if (event.getEventType() == EventType.Departure)
                 processDepartureEvent(event);
+            updateIdleTimes();
+
+            System.out.printf("%10s %5s %5s %10.3f | %4d %4d %4d | %4d %4d %4d %4d %4d | %4d %4d %4d | %10.3f %10.3f | %10.3f %10.3f %10.3fs\n",
+                    event.getEventType(),event.getComponentType(),event.getProductType(),clock,
+                    numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3,
+                    clock-insp1Active, clock-insp2Active, clock-ws1Active, clock-ws2Active, clock-ws3Active);
+
+            lastEventTime = event.getEventTime();
         }
+
+        System.out.println("Throughput:");
+        System.out.printf("%3s: %10.3f\n", ProductType.P1, numberP1 / clock);
+        System.out.printf("%3s: %10.3f\n", ProductType.P2, numberP2 / clock);
+        System.out.printf("%3s: %10.3f\n", ProductType.P3, numberP3 / clock);
+
+        System.out.println("Inspector Idle Probability:");
+        System.out.printf("Inspector 1: %8.4f%%\n", (clock - insp1Active) / clock * 100);
+        System.out.printf("Inspector 2: %8.4f%%\n", (clock - insp2Active) / clock * 100);
     }
 
     /**
@@ -59,6 +89,7 @@ public class Simulation {
         futureEvents = new PriorityQueue<>();
         simRandom = new SimulationRandom(100980888L);
         clock = 0.0;
+        lastEventTime = 0.0;
 
         inspector1Hold = null;
         inspector2Hold = null;
@@ -75,20 +106,29 @@ public class Simulation {
         numberP1 = 0;
         numberP2 = 0;
         numberP3 = 0;
+        insp1Active = 0;
+        insp2Active = 0;
+        ws1Active = 0;
+        ws2Active = 0;
+        ws3Active = 0;
 
         if (totalProducts == 0) return;
 
         //Queue starting arrival events
-        //Null warning, but totalProducts would cancel if any are empty
-        futureEvents.add(new Event(EventType.Arrival, ComponentType.C1, null, simRandom.nextServinsp1()));
+        double insp1T = simRandom.nextServinsp1();
+        futureEvents.add(new Event(EventType.Arrival, ComponentType.C1, null, insp1T));
         numberC1++;
-        if (simRandom.nextInsp2Comp() == ComponentType.C2) {
-            futureEvents.add(new Event(EventType.Arrival, ComponentType.C2, null, simRandom.nextServinsp22()));
+
+        double insp2T;
+        ComponentType insp2C = simRandom.nextInsp2Comp();
+        if (insp2C == ComponentType.C2) {
+            insp2T = simRandom.nextServinsp22();
             numberC2++;
         } else {
-            futureEvents.add(new Event(EventType.Arrival, ComponentType.C3, null, simRandom.nextServinsp23()));
+            insp2T = simRandom.nextServinsp23();
             numberC3++;
         }
+        futureEvents.add(new Event(EventType.Arrival, insp2C, null, insp2T));
     }
 
     /**
@@ -135,9 +175,6 @@ public class Simulation {
                 break;
         }
 
-        System.out.printf("%10s %10s %5s %5s %10.3f | %3d %3d %3d | %3d %3d %3d %3d %3d | %3d %3d %3d\n","Process",event.getEventType(),event.getComponentType(),event.getProductType(),clock,
-                numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
-
         //Set up arrivals and departures if not on hold
         if(destinationProduct != null){
             scheduleArrivalEvent(event);
@@ -174,8 +211,6 @@ public class Simulation {
         if (!Double.isNaN(nextTime) && nextComponent != null) {
             Event newEvent = new Event(EventType.Arrival, nextComponent, null, clock + nextTime);
             futureEvents.add(newEvent);
-            System.out.printf("%10s %10s %5s %5s %10.3f | %3d %3d %3d | %3d %3d %3d %3d %3d | %3d %3d %3d\n","Schedule",newEvent.getEventType(),newEvent.getComponentType(),newEvent.getProductType(),clock,
-                    numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
         }
     }
 
@@ -219,16 +254,15 @@ public class Simulation {
         if(!Double.isNaN(nextTime)) { //check the product is being made
             Event newEvent = new Event(EventType.Departure, null, type, clock + nextTime);
             futureEvents.add(newEvent);
-            System.out.printf("%10s %10s %5s %5s %10.3f | %3d %3d %3d | %3d %3d %3d %3d %3d | %3d %3d %3d\n", "Schedule", newEvent.getEventType(), newEvent.getComponentType(), newEvent.getProductType(), clock,
-                    numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
-            //processHoldEvent();
+            processHoldEvent();
         }
     }
 
     /**
      * Check for a hold and cancel if applicable
+     * Called after a departure event gets scheduled
      */
-    /*private static void processHoldEvent(){
+    private static void processHoldEvent(){
         if(inspector1Hold != null){
             ProductType holdDestination = determineC1Destination();
             if(holdDestination != null){
@@ -243,8 +277,10 @@ public class Simulation {
                         ws3BufferC1++;
                         break;
                 }
-                scheduleArrivalEvent(inspector1Hold);
+                Event holdEvent = inspector1Hold;
                 inspector1Hold = null;
+                scheduleArrivalEvent(holdEvent);
+
             }
         }
 
@@ -259,11 +295,13 @@ public class Simulation {
                 canLiftHold = true;
             }
             if(canLiftHold) {
-                scheduleArrivalEvent(inspector2Hold);
+                Event holdEvent = inspector2Hold;
                 inspector2Hold = null;
+                scheduleArrivalEvent(holdEvent);
+
             }
         }
-    }*/
+    }
 
     /**
      * Process a departure event
@@ -282,9 +320,26 @@ public class Simulation {
                 numberP3++;
                 break;
         }
-        System.out.printf("%10s %10s %5s %5s %10.3f | %3d %3d %3d | %3d %3d %3d %3d %3d | %3d %3d %3d\n","Process",event.getEventType(),event.getComponentType(),event.getProductType(),clock,
-                numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3);
+        numberProducts++;
         scheduleDepartureEvent(event.getProductType());
+    }
+
+    private static void updateIdleTimes(){
+        if (futureEvents.stream().anyMatch(e -> e.getComponentType() == ComponentType.C1)) {
+            insp1Active += clock - lastEventTime;
+        }
+        if (futureEvents.stream().anyMatch(e -> (e.getComponentType() == ComponentType.C2 || e.getComponentType() == ComponentType.C3))) {
+            insp2Active += clock - lastEventTime;
+        }
+        if (futureEvents.stream().anyMatch(e -> e.getProductType() == ProductType.P1)) {
+            ws1Active += clock - lastEventTime;
+        }
+        if (futureEvents.stream().anyMatch(e -> e.getProductType() == ProductType.P2)) {
+            ws2Active += clock - lastEventTime;
+        }
+        if (futureEvents.stream().anyMatch(e -> e.getProductType() == ProductType.P3)) {
+            ws3Active += clock - lastEventTime;
+        }
     }
 
     private static ProductType determineC1Destination() {
