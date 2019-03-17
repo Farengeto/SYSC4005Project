@@ -70,12 +70,12 @@ public class Simulation {
 
             lastEventTime = event.getEventTime();
         }
-
+        System.out.println();
         System.out.println("Throughput:");
-        System.out.printf("%3s: %10.3f\n", ProductType.P1, numberP1 / clock);
-        System.out.printf("%3s: %10.3f\n", ProductType.P2, numberP2 / clock);
-        System.out.printf("%3s: %10.3f\n", ProductType.P3, numberP3 / clock);
-
+        System.out.printf("%2s: %8.4f units/minute\n", ProductType.P1, numberP1 / clock);
+        System.out.printf("%2s: %8.4f units/minute\n", ProductType.P2, numberP2 / clock);
+        System.out.printf("%2s: %8.4f units/minute\n", ProductType.P3, numberP3 / clock);
+        System.out.println();
         System.out.println("Inspector Idle Probability:");
         System.out.printf("Inspector 1: %8.4f%%\n", (clock - insp1Active) / clock * 100);
         System.out.printf("Inspector 2: %8.4f%%\n", (clock - insp2Active) / clock * 100);
