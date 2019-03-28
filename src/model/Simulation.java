@@ -38,6 +38,9 @@ public class Simulation {
     private static double ws2Active;
     private static double ws3Active;
 
+    //C1 priority value
+    private static int priority = 1;
+
     public static void main(String[] args) {
         initialization();
 
