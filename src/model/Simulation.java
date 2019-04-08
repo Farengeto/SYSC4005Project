@@ -42,13 +42,13 @@ public class Simulation {
     private static int priority = 1;
     
     //Initialization tracking
-    /*private static int initializationLength = 100;
+    private static int initializationLength = 100;
     private static double initializationClock;
     private static double initializationInsp1;
     private static double initializationInsp2;
     private static int initializationP1;
     private static int initializationP2;
-    private static int initializationP3;*/
+    private static int initializationP3;
 
     public static void main(String[] args) {
         long[] seeds = {0, 1, 4, 516, 1234, 4005, 4806, 6374, 314159, 100980888};
@@ -68,14 +68,14 @@ public class Simulation {
 
         initialization();
 
-            /*System.out.printf("%10s %5s %5s %10s | %4s %4s %4s | %4s %4s %4s %4s %4s | %4s %4s %4s | %10s %10s | %10s %10s %10s\n",
-                "Event","Comp","Prod","Clock",
-                "C1","C2","C3","B11","B21","B22","B31","B33","P1","P2","P3",
-                "insp1 Idle","insp2 Idle","ws1 Idle","ws2 Idle","ws3 Idle");
-            System.out.printf("%10s %5s %5s %10.3f | %4d %4d %4d | %4d %4d %4d %4d %4d | %4d %4d %4d | %10.3f %10.3f | %10.3f %10.3f %10.3fs\n",
-                "","","",clock,
+        System.out.printf("%10s %5s %5s %10s | %4s %4s %4s | %4s %4s %4s %4s %4s | %4s %4s %4s | %10s %10s | %10s %10s %10s\n",
+                "Event", "Comp", "Prod", "Clock",
+                "C1", "C2", "C3", "B11", "B21", "B22", "B31", "B33", "P1", "P2", "P3",
+                "insp1 Idle", "insp2 Idle", "ws1 Idle", "ws2 Idle", "ws3 Idle");
+        System.out.printf("%10s %5s %5s %10.3f | %4d %4d %4d | %4d %4d %4d %4d %4d | %4d %4d %4d | %10.3f %10.3f | %10.3f %10.3f %10.3fs\n",
+                "", "", "", clock,
                 numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3,
-                clock-insp1Active, clock-insp2Active, clock-ws1Active, clock-ws2Active, clock-ws3Active);*/
+                clock - insp1Active, clock - insp2Active, clock - ws1Active, clock - ws2Active, clock - ws3Active);
         while (numberProducts < totalProducts) {
             Event event = futureEvents.poll();
 
@@ -90,22 +90,24 @@ public class Simulation {
                 processDepartureEvent(event);
             updateIdleTimes();
 
-            /*System.out.printf("%10s %5s %5s %10.3f | %4d %4d %4d | %4d %4d %4d %4d %4d | %4d %4d %4d | %10.3f %10.3f | %10.3f %10.3f %10.3fs\n",
+            System.out.printf("%10s %5s %5s %10.3f | %4d %4d %4d | %4d %4d %4d %4d %4d | %4d %4d %4d | %10.3f %10.3f | %10.3f %10.3f %10.3fs\n",
                     event.getEventType(), event.getComponentType(), event.getProductType(), clock,
                     numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3,
-                    clock - insp1Active, clock - insp2Active, clock - ws1Active, clock - ws2Active, clock - ws3Active);*/
+                    clock - insp1Active, clock - insp2Active, clock - ws1Active, clock - ws2Active, clock - ws3Active);
 
-                /*if (numberProducts == initializationLength && event.getEventType() == EventType.Departure) {
-                    initializationClock = clock;
-                    initializationInsp1 = insp1Active;
-                    initializationInsp2 = insp2Active;
-                    initializationP1 = numberP1;
-                    initializationP2 = numberP2;
-                    initializationP3 = numberP3;
-                }*/
+            if (numberProducts == initializationLength && event.getEventType() == EventType.Departure) {
+                initializationClock = clock;
+                initializationInsp1 = insp1Active;
+                initializationInsp2 = insp2Active;
+                initializationP1 = numberP1;
+                initializationP2 = numberP2;
+                initializationP3 = numberP3;
+            }
 
             lastEventTime = event.getEventTime();
         }
+
+        //Formatted Simulation Output
         System.out.println();
         System.out.println("------------------------------");
         System.out.println("Random Seed:     " + (useHistorical ? "Historical Data" : seed));
@@ -122,6 +124,7 @@ public class Simulation {
         System.out.printf("Inspector 2: %8.4f%%\n", (clock - insp2Active) / clock * 100);
         System.out.println("------------------------------");
 
+        //Unformatted compact output
         /*System.out.print(seed);
         System.out.print("\t" + clock);
         System.out.print("\t" + (numberP1 / clock));
@@ -131,6 +134,7 @@ public class Simulation {
         System.out.print("\t" + ((clock - insp2Active) / clock * 100) + "%");
         System.out.println();*/
 
+        //Unformatted compact output, using initialization length
         /*double resultsClock = (clock - initializationClock);
         System.out.print(seed);
         System.out.print("\t" + (numberProducts - initializationLength));
@@ -171,6 +175,13 @@ public class Simulation {
         ws1Active = 0;
         ws2Active = 0;
         ws3Active = 0;
+
+        initializationClock = 0;
+        initializationInsp1 = 0;
+        initializationInsp2 = 0;
+        initializationP1 = 0;
+        initializationP2 = 0;
+        initializationP3 = 0;
 
         if (totalProducts == 0) return;
 
