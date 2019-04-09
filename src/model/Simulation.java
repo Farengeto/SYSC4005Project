@@ -8,6 +8,7 @@ public class Simulation {
     private static int totalProducts; //how many products to simulate
     private static PriorityQueue<Event> futureEvents; //List of queued events, sorted by time
     private static double lastEventTime;
+    private static Insp1Routing insp1Routing;
 
     //Total inputs
     private static int numberC1;
@@ -37,9 +38,6 @@ public class Simulation {
     private static double ws1Active;
     private static double ws2Active;
     private static double ws3Active;
-
-    //C1 priority value
-    private static int priority = 1;
     
     //Initialization tracking
     private static int initializationLength = 100;
@@ -53,31 +51,47 @@ public class Simulation {
     public static void main(String[] args) {
         //Simulation constants
         long[] seeds = {0, 1, 4, 516, 1234, 4005, 4806, 6374, 314159, 100980888};
-        int totalProducts = 10000000;
-        boolean printState = false;
+        int totalProducts = 1000000;
+        boolean printState = false; //Disable on large sims, affects performance
         boolean useInitialization = false;
 
+        //Standard Simulation
         SimulationOutput[] outputs = new SimulationOutput[seeds.length + 1];
         for (int i = 0; i < seeds.length; i++) {
-            outputs[i] = runSimulation(seeds[i], totalProducts, false, printState, useInitialization);
+            outputs[i] = runSimulation(seeds[i], totalProducts, new Insp1RoutingP1First(), false, printState, useInitialization);
         }
-        outputs[seeds.length] = runSimulation(0, totalProducts, true, printState, useInitialization);
+        outputs[seeds.length] = runSimulation(0, totalProducts, new Insp1RoutingP1First(), true, printState, useInitialization);
+
+        //Alternative Design
+        SimulationOutput[] altOutputs = new SimulationOutput[seeds.length + 1];
+        for (int i = 0; i < seeds.length; i++) {
+            altOutputs[i] = runSimulation(seeds[i], totalProducts, new Insp1RoutingRotatingPriority(), false, printState, useInitialization);
+        }
+        altOutputs[seeds.length] = runSimulation(0, totalProducts, new Insp1RoutingRotatingPriority(), true, printState, useInitialization);
 
         //Print raw output table
         //For quick copy to excel
         System.out.println();
+        System.out.println("Simulation Specification:");
         System.out.println("seed\tclock\tp1Throughput\tp2Throughput\tp3Throughput\tinsp1Idle\tinsp2Idle");
         for (int i = 0; i < outputs.length; i++) {
             outputs[i].printRawOutput();
         }
+        System.out.println();
+        System.out.println("Alternate Design:");
+        System.out.println("seed\tclock\tp1Throughput\tp2Throughput\tp3Throughput\tinsp1Idle\tinsp2Idle");
+        for (int i = 0; i < altOutputs.length; i++) {
+            altOutputs[i].printRawOutput();
+        }
     }
 
-    private static SimulationOutput runSimulation(long seed, int products, boolean useHistorical, boolean printState, boolean useInitialization) {
+    private static SimulationOutput runSimulation(long seed, int products, Insp1Routing routing, boolean useHistorical, boolean printState, boolean useInitialization) {
         totalProducts = products;
         if (useHistorical)
             simRandom = new SimulationHistoricalData(seed);
         else
             simRandom = new SimulationRandom(seed);
+        insp1Routing = routing;
 
         initialization();
 
@@ -118,11 +132,11 @@ public class Simulation {
         //Log output and print to console
         SimulationOutput output;
         if (useInitialization && numberProducts > initializationLength)
-            output = new SimulationOutput(useHistorical, seed, clock - initializationClock,
+            output = new SimulationOutput(useHistorical, seed, insp1Routing, clock - initializationClock,
                     numberP1 - initializationP1, numberP2 - initializationP2, numberP3 - initializationP3,
                     insp1Active - initializationInsp1, insp2Active - initializationInsp2);
         else
-            output = new SimulationOutput(useHistorical, seed, clock, numberP1, numberP2, numberP3, insp1Active, insp2Active);
+            output = new SimulationOutput(useHistorical, seed, insp1Routing, clock, numberP1, numberP2, numberP3, insp1Active, insp2Active);
         System.out.println();
         output.printOutput();
         return output;
@@ -402,14 +416,7 @@ public class Simulation {
      * @return The output to direct C1 to. Returns null if all buffers are full.
      */
     private static ProductType determineC1Destination() {
-        if(ws1BufferC1 >= 2 && ws2BufferC1 >= 2 && ws3BufferC1 >= 2) //All buffers full
-            return null;
-        else if (ws1BufferC1 <= ws2BufferC1 && ws1BufferC1 <= ws3BufferC1)
-            return ProductType.P1;
-        else if (ws2BufferC1 <= ws3BufferC1)
-            return ProductType.P2;
-        else
-            return ProductType.P3;
+        return insp1Routing.determineC1Destination(ws1BufferC1, ws2BufferC1, ws3BufferC1);
     }
 
     /**
