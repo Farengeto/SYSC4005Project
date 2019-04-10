@@ -3,6 +3,7 @@ package model;
 public class SimulationOutput {
     private boolean useHistorical;
     private long seed;
+    private Insp1Routing routing;
     private double clock;
     private int totalProducts;
     private double p1Throughput;
@@ -11,9 +12,10 @@ public class SimulationOutput {
     private double insp1Idle;
     private double insp2Idle;
 
-    public SimulationOutput(boolean useHistorical, long seed, double clock, int numberP1, int numberP2, int numberP3, double insp1Active, double insp2Active){
+    public SimulationOutput(boolean useHistorical, long seed, Insp1Routing routing, double clock, int numberP1, int numberP2, int numberP3, double insp1Active, double insp2Active){
         this.useHistorical = useHistorical;
         this.seed = seed;
+        this.routing = routing;
         this.clock = clock;
         totalProducts = numberP1 + numberP2 + numberP3;
         p1Throughput = (numberP1 / clock);
@@ -25,9 +27,10 @@ public class SimulationOutput {
 
     public void printOutput(){
         System.out.println("------------------------------");
-        System.out.println("Random Seed:     " + (useHistorical ? "Historical Data" : seed));
-        System.out.println("Total Products:  " + totalProducts);
-        System.out.printf("Simulation Time: %.4f minutes\n", clock);
+        System.out.println("Random Seed:         " + (useHistorical ? "Historical Data" : seed));
+        System.out.println("Inspector 1 Routing: " + routing.getClass().getSimpleName());
+        System.out.println("Total Products:      " + totalProducts);
+        System.out.printf("Simulation Time:     %.4f minutes\n", clock);
         System.out.println();
         System.out.println("Throughput:");
         System.out.printf("%2s: %8.4f units/minute\n", ProductType.P1, p1Throughput);
