@@ -40,18 +40,52 @@ public class Simulation {
 
     //C1 priority value
     private static int priority = 1;
+    
+    //Initialization tracking
+    private static int initializationLength = 100;
+    private static double initializationClock;
+    private static double initializationInsp1;
+    private static double initializationInsp2;
+    private static int initializationP1;
+    private static int initializationP2;
+    private static int initializationP3;
 
     public static void main(String[] args) {
+        //Simulation constants
+        long[] seeds = {0, 1, 4, 516, 1234, 4005, 4806, 6374, 314159, 100980888};
+        int totalProducts = 10000000;
+        boolean printState = false;
+        boolean useInitialization = false;
+
+        SimulationOutput[] outputs = new SimulationOutput[seeds.length + 1];
+        for (int i = 0; i < seeds.length; i++) {
+            outputs[i] = runSimulation(seeds[i], totalProducts, false, printState, useInitialization);
+        }
+        outputs[seeds.length] = runSimulation(0, totalProducts, true, printState, useInitialization);
+
+        //Print raw output table
+        //For quick copy to excel
+        System.out.println();
+        System.out.println("seed\tclock\tp1Throughput\tp2Throughput\tp3Throughput\tinsp1Idle\tinsp2Idle");
+        for (int i = 0; i < outputs.length; i++) {
+            outputs[i].printRawOutput();
+        }
+    }
+
+    private static SimulationOutput runSimulation(long seed, int products, boolean useHistorical, boolean printState, boolean useInitialization) {
+        totalProducts = products;
+        if (useHistorical)
+            simRandom = new SimulationHistoricalData(seed);
+        else
+            simRandom = new SimulationRandom(seed);
+
         initialization();
 
-        System.out.printf("%10s %5s %5s %10s | %4s %4s %4s | %4s %4s %4s %4s %4s | %4s %4s %4s | %10s %10s | %10s %10s %10s\n",
-                "Event","Comp","Prod","Clock",
-                "C1","C2","C3","B11","B21","B22","B31","B33","P1","P2","P3",
-                "insp1 Idle","insp2 Idle","ws1 Idle","ws2 Idle","ws3 Idle");
-        System.out.printf("%10s %5s %5s %10.3f | %4d %4d %4d | %4d %4d %4d %4d %4d | %4d %4d %4d | %10.3f %10.3f | %10.3f %10.3f %10.3fs\n",
-                "","","",clock,
-                numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3,
-                clock-insp1Active, clock-insp2Active, clock-ws1Active, clock-ws2Active, clock-ws3Active);
+        if (printState) {
+            printSimulationStateHeader();
+            printSimulationState(null);
+        }
+
         while (numberProducts < totalProducts) {
             Event event = futureEvents.poll();
 
@@ -66,31 +100,39 @@ public class Simulation {
                 processDepartureEvent(event);
             updateIdleTimes();
 
-            System.out.printf("%10s %5s %5s %10.3f | %4d %4d %4d | %4d %4d %4d %4d %4d | %4d %4d %4d | %10.3f %10.3f | %10.3f %10.3f %10.3fs\n",
-                    event.getEventType(),event.getComponentType(),event.getProductType(),clock,
-                    numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3,
-                    clock-insp1Active, clock-insp2Active, clock-ws1Active, clock-ws2Active, clock-ws3Active);
+            if (printState)
+                printSimulationState(event);
+
+            if (useInitialization && numberProducts == initializationLength && event.getEventType() == EventType.Departure) {
+                initializationClock = clock;
+                initializationInsp1 = insp1Active;
+                initializationInsp2 = insp2Active;
+                initializationP1 = numberP1;
+                initializationP2 = numberP2;
+                initializationP3 = numberP3;
+            }
 
             lastEventTime = event.getEventTime();
         }
+
+        //Log output and print to console
+        SimulationOutput output;
+        if (useInitialization && numberProducts > initializationLength)
+            output = new SimulationOutput(useHistorical, seed, clock - initializationClock,
+                    numberP1 - initializationP1, numberP2 - initializationP2, numberP3 - initializationP3,
+                    insp1Active - initializationInsp1, insp2Active - initializationInsp2);
+        else
+            output = new SimulationOutput(useHistorical, seed, clock, numberP1, numberP2, numberP3, insp1Active, insp2Active);
         System.out.println();
-        System.out.println("Throughput:");
-        System.out.printf("%2s: %8.4f units/minute\n", ProductType.P1, numberP1 / clock);
-        System.out.printf("%2s: %8.4f units/minute\n", ProductType.P2, numberP2 / clock);
-        System.out.printf("%2s: %8.4f units/minute\n", ProductType.P3, numberP3 / clock);
-        System.out.println();
-        System.out.println("Inspector Idle Probability:");
-        System.out.printf("Inspector 1: %8.4f%%\n", (clock - insp1Active) / clock * 100);
-        System.out.printf("Inspector 2: %8.4f%%\n", (clock - insp2Active) / clock * 100);
+        output.printOutput();
+        return output;
     }
 
     /**
      * Initialize the simulation
      */
     private static void initialization() {
-        totalProducts = 1000;
         futureEvents = new PriorityQueue<>();
-        simRandom = new SimulationRandom(100980888L);
         clock = 0.0;
         lastEventTime = 0.0;
 
@@ -114,6 +156,13 @@ public class Simulation {
         ws1Active = 0;
         ws2Active = 0;
         ws3Active = 0;
+
+        initializationClock = 0;
+        initializationInsp1 = 0;
+        initializationInsp2 = 0;
+        initializationP1 = 0;
+        initializationP2 = 0;
+        initializationP3 = 0;
 
         if (totalProducts == 0) return;
 
@@ -327,6 +376,9 @@ public class Simulation {
         scheduleDepartureEvent(event.getProductType());
     }
 
+    /**
+     * Check for activity and update idle times as appropriate
+     */
     private static void updateIdleTimes(){
         if (futureEvents.stream().anyMatch(e -> e.getComponentType() == ComponentType.C1)) {
             insp1Active += clock - lastEventTime;
@@ -345,6 +397,10 @@ public class Simulation {
         }
     }
 
+    /**
+     * Determine destination for component1 based on simulation state
+     * @return The output to direct C1 to. Returns null if all buffers are full.
+     */
     private static ProductType determineC1Destination() {
         if(ws1BufferC1 >= 2 && ws2BufferC1 >= 2 && ws3BufferC1 >= 2) //All buffers full
             return null;
@@ -354,5 +410,36 @@ public class Simulation {
             return ProductType.P2;
         else
             return ProductType.P3;
+    }
+
+    /**
+     * Print the header for the formatted output of the simulation state to the console
+     */
+    private static void printSimulationStateHeader() {
+        System.out.printf("%10s %5s %5s %10s | %4s %4s %4s | %4s %4s %4s %4s %4s | %4s %4s %4s | %10s %10s | %10s %10s %10s\n",
+                "Event", "Comp", "Prod", "Clock",
+                "C1", "C2", "C3", "B11", "B21", "B22", "B31", "B33", "P1", "P2", "P3",
+                "insp1 Idle", "insp2 Idle", "ws1 Idle", "ws2 Idle", "ws3 Idle");
+    }
+
+    /**
+     * Print a formatted output of the simulation state to the console
+     * @param event The current simulation event
+     */
+    private static void printSimulationState(Event event) {
+        String typeEvent = "";
+        String typeComponent = "";
+        String typeProduct = "";
+
+        if (event != null) {
+            if (event.getEventType() != null) typeEvent = event.getEventType().toString();
+            if (event.getComponentType() != null) typeComponent = event.getComponentType().toString();
+            if (event.getProductType() != null) typeProduct = event.getProductType().toString();
+        }
+
+        System.out.printf("%10s %5s %5s %10.3f | %4d %4d %4d | %4d %4d %4d %4d %4d | %4d %4d %4d | %10.3f %10.3f | %10.3f %10.3f %10.3fs\n",
+                typeEvent, typeComponent, typeProduct, clock,
+                numberC1, numberC2, numberC3, ws1BufferC1, ws2BufferC1, ws2BufferC2, ws3BufferC1, ws3BufferC3, numberP1, numberP2, numberP3,
+                clock - insp1Active, clock - insp2Active, clock - ws1Active, clock - ws2Active, clock - ws3Active);
     }
 }
